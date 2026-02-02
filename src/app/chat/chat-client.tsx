@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Contest, ChatMessageWithProfile } from '@/types/database'
+import { Contest, ChatMessageWithProfile, GiphyGif } from '@/types/database'
+import Image from 'next/image'
 
 interface ChatClientProps {
   contest: Contest
@@ -17,6 +18,13 @@ export function ChatClient({ contest, initialMessages, userId, userName }: ChatC
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
+
+  // GIF picker state
+  const [showGifPicker, setShowGifPicker] = useState(false)
+  const [gifSearch, setGifSearch] = useState('')
+  const [gifs, setGifs] = useState<GiphyGif[]>([])
+  const [loadingGifs, setLoadingGifs] = useState(false)
+  const [gifError, setGifError] = useState<string | null>(null)
 
   // Scroll to bottom
   const scrollToBottom = () => {
@@ -98,6 +106,75 @@ export function ChatClient({ contest, initialMessages, userId, userName }: ChatC
     setSending(false)
   }
 
+  // Fetch GIFs from GIPHY API
+  const fetchGifs = useCallback(async (query: string) => {
+    setLoadingGifs(true)
+    setGifError(null)
+
+    try {
+      const url = query.trim()
+        ? `/api/giphy/search?q=${encodeURIComponent(query)}`
+        : '/api/giphy/search'
+
+      const response = await fetch(url)
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch GIFs')
+      }
+
+      const data = await response.json()
+      setGifs(data.data || [])
+    } catch (error) {
+      console.error('Error fetching GIFs:', error)
+      setGifError('Failed to load GIFs')
+      setGifs([])
+    } finally {
+      setLoadingGifs(false)
+    }
+  }, [])
+
+  // Debounced GIF search
+  useEffect(() => {
+    if (!showGifPicker) return
+
+    const timer = setTimeout(() => {
+      fetchGifs(gifSearch)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [gifSearch, showGifPicker, fetchGifs])
+
+  // Load trending GIFs when picker opens
+  useEffect(() => {
+    if (showGifPicker && gifs.length === 0 && !gifSearch) {
+      fetchGifs('')
+    }
+  }, [showGifPicker, gifs.length, gifSearch, fetchGifs])
+
+  const handleSendGif = async (gif: GiphyGif) => {
+    if (sending) return
+
+    setShowGifPicker(false)
+    setGifSearch('')
+    setSending(true)
+
+    const gifUrl = gif.images.fixed_height.url
+
+    const { error } = await supabase
+      .from('sb_chat_messages')
+      .insert({
+        contest_id: contest.id,
+        user_id: userId,
+        gif_url: gifUrl,
+      })
+
+    if (error) {
+      console.error('Failed to send GIF:', error)
+    }
+
+    setSending(false)
+  }
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleTimeString('en-US', {
@@ -135,7 +212,19 @@ export function ChatClient({ contest, initialMessages, userId, userName }: ChatC
                     {message.profile?.display_name || 'Unknown'}
                   </p>
                 )}
-                <p className="break-words">{message.message}</p>
+                {message.gif_url ? (
+                  <Image
+                    src={message.gif_url}
+                    alt="GIF"
+                    width={200}
+                    height={150}
+                    className="rounded-lg"
+                    unoptimized
+                    onLoad={scrollToBottom}
+                  />
+                ) : (
+                  <p className="break-words">{message.message}</p>
+                )}
                 <p className={`text-xs mt-1 ${isOwnMessage ? 'text-blue-200' : 'text-zinc-500'}`}>
                   {formatTime(message.created_at)}
                 </p>
@@ -152,9 +241,73 @@ export function ChatClient({ contest, initialMessages, userId, userName }: ChatC
         </div>
       )}
 
+      {/* GIF Picker */}
+      {showGifPicker && (
+        <div className="border-t border-zinc-800 bg-zinc-900 p-4">
+          <div className="mb-3">
+            <input
+              type="text"
+              value={gifSearch}
+              onChange={(e) => setGifSearch(e.target.value)}
+              placeholder="Search GIFs..."
+              className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="h-48 overflow-y-auto">
+            {loadingGifs ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              </div>
+            ) : gifError ? (
+              <div className="flex items-center justify-center h-full text-red-400">
+                {gifError}
+              </div>
+            ) : gifs.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-zinc-500">
+                No GIFs found
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {gifs.map((gif) => (
+                  <button
+                    key={gif.id}
+                    type="button"
+                    onClick={() => handleSendGif(gif)}
+                    className="relative overflow-hidden rounded-lg hover:ring-2 hover:ring-blue-500 transition-all"
+                  >
+                    <Image
+                      src={gif.images.fixed_height_small.url}
+                      alt={gif.title}
+                      width={100}
+                      height={100}
+                      className="w-full h-auto object-cover"
+                      unoptimized
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-zinc-500 text-center mt-2">Powered by GIPHY</p>
+        </div>
+      )}
+
       {/* Input */}
       <form onSubmit={handleSend} className="p-4 border-t border-zinc-800 bg-zinc-900/50">
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowGifPicker(!showGifPicker)}
+            className={`px-4 py-3 rounded-full font-medium transition-colors ${
+              showGifPicker
+                ? 'bg-blue-600 text-white'
+                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+            }`}
+          >
+            GIF
+          </button>
           <input
             type="text"
             value={newMessage}

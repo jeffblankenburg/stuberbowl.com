@@ -60,7 +60,8 @@ export type ChatMessage = {
   id: string
   contest_id: string
   user_id: string
-  message: string
+  message: string | null
+  gif_url: string | null
   created_at: string
 }
 
@@ -89,4 +90,22 @@ export type PropBetWithPick = PropBet & {
 
 export type ChatMessageWithProfile = ChatMessage & {
   profile: Pick<Profile, 'display_name'>
+}
+
+// GIPHY types
+export type GiphyGif = {
+  id: string
+  title: string
+  images: {
+    fixed_height: {
+      url: string
+      width: string
+      height: string
+    }
+    fixed_height_small: {
+      url: string
+      width: string
+      height: string
+    }
+  }
 }
