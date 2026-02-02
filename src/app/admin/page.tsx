@@ -188,6 +188,22 @@ export default async function AdminPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
           </svg>
         </Link>
+
+        <Link
+          href="/admin/landing"
+          className="flex items-center justify-between bg-zinc-900 rounded-xl p-4 hover:bg-zinc-800 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🏠</span>
+            <div>
+              <p className="text-white font-medium">Landing Page</p>
+              <p className="text-zinc-500 text-sm">Edit welcome message, payment links</p>
+            </div>
+          </div>
+          <svg className="w-5 h-5 text-zinc-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+          </svg>
+        </Link>
       </div>
 
       {/* User Simulation */}
