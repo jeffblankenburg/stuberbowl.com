@@ -17,6 +17,7 @@ export default function AdminPayoutsPage() {
   const [payoutFirst, setPayoutFirst] = useState('')
   const [payoutSecond, setPayoutSecond] = useState('')
   const [payoutThird, setPayoutThird] = useState('')
+  const [payoutLast, setPayoutLast] = useState('')
   const [settingsExpanded, setSettingsExpanded] = useState(false)
 
   const router = useRouter()
@@ -63,6 +64,8 @@ export default function AdminPayoutsPage() {
       setPayoutFirst(String(contestData.payout_first ?? 0))
       setPayoutSecond(String(contestData.payout_second ?? 0))
       setPayoutThird(String(contestData.payout_third ?? 0))
+      // Default payout_last to entry_fee if not set
+      setPayoutLast(String(contestData.payout_last ?? contestData.entry_fee ?? 0))
 
       const { data: leaderboardData } = await supabase.rpc('sb_get_leaderboard', {
         contest_uuid: contestData.id,
@@ -83,6 +86,7 @@ export default function AdminPayoutsPage() {
         payout_first: Number(payoutFirst) || 0,
         payout_second: Number(payoutSecond) || 0,
         payout_third: Number(payoutThird) || 0,
+        payout_last: Number(payoutLast) || 0,
       })
       .eq('id', contest.id)
 
@@ -94,7 +98,8 @@ export default function AdminPayoutsPage() {
     Number(entryFee) !== (contest.entry_fee ?? 0) ||
     Number(payoutFirst) !== (contest.payout_first ?? 0) ||
     Number(payoutSecond) !== (contest.payout_second ?? 0) ||
-    Number(payoutThird) !== (contest.payout_third ?? 0)
+    Number(payoutThird) !== (contest.payout_third ?? 0) ||
+    Number(payoutLast) !== (contest.payout_last ?? contest.entry_fee ?? 0)
   )
 
   const handleMarkPayout = async (userId: string, place: number, amount: number) => {
@@ -155,16 +160,19 @@ export default function AdminPayoutsPage() {
   const payoutFirstNum = Number(payoutFirst) || 0
   const payoutSecondNum = Number(payoutSecond) || 0
   const payoutThirdNum = Number(payoutThird) || 0
+  const payoutLastNum = Number(payoutLast) || entryFeeNum
   const totalPot = paidPlayers * entryFeeNum
   const firstPrize = totalPot * payoutFirstNum / 100
   const secondPrize = totalPot * payoutSecondNum / 100
   const thirdPrize = totalPot * payoutThirdNum / 100
+  const lastPrize = payoutLastNum
 
-  // Get top 3 (paid only for prizes)
+  // Get top 3 and last (paid only for prizes)
   const paidLeaderboard = leaderboard.filter(e => e.has_paid_entry)
   const winner = paidLeaderboard[0]
   const second = paidLeaderboard[1]
   const third = paidLeaderboard[2]
+  const lastPlace = paidLeaderboard.length > 3 ? paidLeaderboard[paidLeaderboard.length - 1] : null
 
   return (
     <div className="p-4 space-y-6">
@@ -245,6 +253,19 @@ export default function AdminPayoutsPage() {
                   className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-zinc-400 mb-1">Last Place Gets Back ($)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={payoutLast}
+                onChange={(e) => setPayoutLast(e.target.value.replace(/[^0-9.]/g, ''))}
+                placeholder={`Default: $${entryFee || 0} (entry fee)`}
+                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-zinc-500 mt-1">The last place finisher gets this amount back</p>
             </div>
 
             {payoutFirstNum + payoutSecondNum + payoutThirdNum !== 100 && (
@@ -356,27 +377,56 @@ export default function AdminPayoutsPage() {
             )}
           </div>
         </div>
+
+        {/* Last Place */}
+        {lastPlace && (
+          <div className="bg-red-900/20 border border-red-700/50 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-red-400 font-bold">Last Place (Money Back)</p>
+                <p className="text-2xl font-bold text-white">${lastPrize.toFixed(0)}</p>
+                <p className="text-zinc-400 text-sm mt-1">
+                  {lastPlace.display_name} - {lastPlace.correct_picks} correct
+                </p>
+              </div>
+              <button
+                onClick={() => handleMarkPayout(lastPlace.user_id, paidLeaderboard.length, lastPrize)}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-zinc-700 text-white hover:bg-zinc-600 transition-colors"
+              >
+                Mark Paid
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Full Standings for Reference */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-white">Full Standings</h2>
-        {leaderboard.map((entry) => (
-          <div key={entry.user_id} className="bg-zinc-900 rounded-xl p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-zinc-500 w-6">{entry.rank}.</span>
-                <div>
-                  <p className="text-white font-medium">{entry.display_name}</p>
-                  <p className="text-zinc-500 text-xs">
-                    {entry.correct_picks} correct
-                    {!entry.has_paid_entry && <span className="text-amber-500 ml-2">• unpaid</span>}
-                  </p>
+        {leaderboard.map((entry) => {
+          const isLastPlace = lastPlace && entry.user_id === lastPlace.user_id
+          return (
+            <div
+              key={entry.user_id}
+              className={`rounded-xl p-3 ${isLastPlace ? 'bg-red-900/20 border border-red-700/50' : 'bg-zinc-900'}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-zinc-500 w-6">{entry.rank}.</span>
+                  <div>
+                    <p className="text-white font-medium">{entry.display_name}</p>
+                    <p className="text-zinc-500 text-xs">
+                      {entry.correct_picks} correct
+                      {!entry.has_paid_entry && <span className="text-amber-500 ml-2">• unpaid</span>}
+                      {isLastPlace && <span className="text-red-400 ml-2">• gets ${lastPrize} back</span>}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

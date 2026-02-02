@@ -22,9 +22,11 @@ export type Contest = {
   payout_first: number
   payout_second: number
   payout_third: number
+  payout_last: number | null
   venmo_username: string | null
   paypal_username: string | null
   landing_message: string | null
+  previous_winners: string | null
   created_at: string
 }
 

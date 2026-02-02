@@ -15,6 +15,7 @@ export default function AdminLandingPage() {
   const [landingMessage, setLandingMessage] = useState('')
   const [venmoUsername, setVenmoUsername] = useState('')
   const [paypalUsername, setPaypalUsername] = useState('')
+  const [previousWinners, setPreviousWinners] = useState('')
 
   const router = useRouter()
   const supabase = createClient()
@@ -59,6 +60,7 @@ export default function AdminLandingPage() {
       setLandingMessage(contestData.landing_message || '')
       setVenmoUsername(contestData.venmo_username || '')
       setPaypalUsername(contestData.paypal_username || '')
+      setPreviousWinners(contestData.previous_winners || '')
     }
   }
 
@@ -73,6 +75,7 @@ export default function AdminLandingPage() {
         landing_message: landingMessage.trim() || null,
         venmo_username: venmoUsername.trim() || null,
         paypal_username: paypalUsername.trim() || null,
+        previous_winners: previousWinners.trim() || null,
       })
       .eq('id', contest.id)
 
@@ -83,7 +86,8 @@ export default function AdminLandingPage() {
   const hasChanges = contest && (
     landingMessage !== (contest.landing_message || '') ||
     venmoUsername !== (contest.venmo_username || '') ||
-    paypalUsername !== (contest.paypal_username || '')
+    paypalUsername !== (contest.paypal_username || '') ||
+    previousWinners !== (contest.previous_winners || '')
   )
 
   if (loading) {
@@ -191,6 +195,23 @@ export default function AdminLandingPage() {
 
         <p className="text-zinc-500 text-sm">
           Entry fee (${entryFee}) will be pre-filled in payment links. Edit entry fee in the Payouts section.
+        </p>
+      </div>
+
+      {/* Previous Winners */}
+      <div className="bg-zinc-900 rounded-xl p-4 space-y-3">
+        <label className="block text-sm font-medium text-zinc-400">
+          Previous Winners
+        </label>
+        <textarea
+          value={previousWinners}
+          onChange={(e) => setPreviousWinners(e.target.value)}
+          rows={5}
+          placeholder="2025 - Mike Toth&#10;2024 - John Smith&#10;2023 - Jane Doe"
+          className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+        />
+        <p className="text-zinc-500 text-sm">
+          Enter one winner per line. This will be displayed in a collapsible section on the leaderboard.
         </p>
       </div>
 

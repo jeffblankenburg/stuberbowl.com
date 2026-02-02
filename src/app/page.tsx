@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getActiveUserId } from '@/lib/simulation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { InstallPrompt } from '@/components/install-prompt'
 
 export const dynamic = 'force-dynamic'
 
@@ -187,6 +188,9 @@ export default async function HomePage() {
           <p className="text-amber-400 text-sm font-medium">Picks are locked!</p>
         </div>
       )}
+
+      {/* Install App Prompt */}
+      <InstallPrompt />
     </div>
   )
 }

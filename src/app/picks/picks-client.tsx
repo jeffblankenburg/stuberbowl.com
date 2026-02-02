@@ -207,7 +207,7 @@ export function PicksClient({ contest, propBets, initialPicks, userId, userName 
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-blue-400">Stuber Bowl</h1>
+            <h1 className="text-xl font-bold text-blue-400">{contest.name}</h1>
             <p className="text-zinc-500 text-xs">{userName}</p>
           </div>
           <div className="text-right">

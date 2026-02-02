@@ -19,6 +19,7 @@ export function LeaderboardClient({
 }: LeaderboardClientProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(initialLeaderboard)
   const [answeredCount, setAnsweredCount] = useState(initialAnsweredCount)
+  const [showPreviousWinners, setShowPreviousWinners] = useState(false)
   const supabase = createClient()
 
   // Fetch updated leaderboard
@@ -75,6 +76,11 @@ export function LeaderboardClient({
   // Calculate pot and payouts
   const paidPlayers = leaderboard.filter(e => e.has_paid_entry).length
   const totalPot = paidPlayers * contest.entry_fee
+  const lastPlacePayout = contest.payout_last ?? contest.entry_fee
+
+  // Find last place among paid players
+  const paidLeaderboard = leaderboard.filter(e => e.has_paid_entry)
+  const lastPlaceUserId = paidLeaderboard.length > 3 ? paidLeaderboard[paidLeaderboard.length - 1]?.user_id : null
 
   const getRankStyle = (rank: number) => {
     switch (rank) {
@@ -123,6 +129,7 @@ export function LeaderboardClient({
             <span>2nd: ${(totalPot * (contest.payout_second ?? 0) / 100).toFixed(0)}</span>
             <span>3rd: ${(totalPot * (contest.payout_third ?? 0) / 100).toFixed(0)}</span>
           </div>
+          <p className="text-xs text-red-400 mt-2">Last place gets ${lastPlacePayout} back</p>
         </div>
       </div>
 
@@ -130,12 +137,13 @@ export function LeaderboardClient({
       <div className="space-y-2">
         {leaderboard.map((entry) => {
           const isCurrentUser = entry.user_id === currentUserId
+          const isLastPlace = entry.user_id === lastPlaceUserId
 
           return (
             <div
               key={entry.user_id}
               className={`rounded-xl p-4 border transition-all ${
-                getRankStyle(Number(entry.rank))
+                isLastPlace ? 'bg-red-900/20 border-red-700/50' : getRankStyle(Number(entry.rank))
               } ${isCurrentUser ? 'ring-2 ring-blue-500' : ''}`}
             >
               <div className="flex items-center justify-between">
@@ -152,6 +160,9 @@ export function LeaderboardClient({
                       {entry.total_picks} picks made
                       {!entry.has_paid_entry && (
                         <span className="text-amber-500 ml-2">• unpaid</span>
+                      )}
+                      {isLastPlace && (
+                        <span className="text-red-400 ml-2">• gets ${lastPlacePayout} back</span>
                       )}
                     </p>
                   </div>
@@ -170,6 +181,34 @@ export function LeaderboardClient({
         <div className="text-center py-12">
           <p className="text-zinc-400">No players yet.</p>
           <p className="text-zinc-500 text-sm mt-2">Make some picks to appear on the leaderboard!</p>
+        </div>
+      )}
+
+      {/* Previous Winners */}
+      {contest.previous_winners && (
+        <div className="bg-zinc-900 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setShowPreviousWinners(!showPreviousWinners)}
+            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-zinc-800 transition-colors"
+          >
+            <span className="text-white font-medium">Previous Winners</span>
+            <svg
+              className={`w-5 h-5 text-zinc-400 transition-transform ${showPreviousWinners ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
+          {showPreviousWinners && (
+            <div className="px-4 pb-4 border-t border-zinc-800">
+              <div className="pt-3 text-zinc-300 whitespace-pre-line text-sm">
+                {contest.previous_winners}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
