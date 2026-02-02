@@ -108,15 +108,9 @@ export default async function AdminPage() {
         </div>
         <div className="bg-zinc-900 rounded-xl p-4 text-center">
           <p className="text-3xl font-bold text-blue-400">{answeredCount || 0}</p>
-          <p className="text-zinc-400 text-sm">Answered</p>
+          <p className="text-zinc-400 text-sm">Results</p>
         </div>
       </div>
-
-      {/* User Simulation */}
-      <UserSimulator
-        users={allUsers || []}
-        currentSimulation={currentSimulation}
-      />
 
       {/* Contest Status */}
       {contest && (
@@ -195,6 +189,12 @@ export default async function AdminPage() {
           </svg>
         </Link>
       </div>
+
+      {/* User Simulation */}
+      <UserSimulator
+        users={allUsers || []}
+        currentSimulation={currentSimulation}
+      />
 
       {/* No Contest Warning */}
       {!contest && (
