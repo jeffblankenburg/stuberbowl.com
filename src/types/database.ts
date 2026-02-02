@@ -35,6 +35,8 @@ export type PropBet = {
   correct_answer: 'A' | 'B' | null
   image_url: string | null
   source_url: string | null
+  is_tiebreaker: boolean
+  is_open_ended: boolean
   sort_order: number
   created_at: string
   updated_at: string
@@ -44,7 +46,8 @@ export type UserPick = {
   id: string
   user_id: string
   prop_bet_id: string
-  selected_option: 'A' | 'B'
+  selected_option: 'A' | 'B' | null
+  value_response: string | null
   is_correct: boolean | null
   created_at: string
   updated_at: string

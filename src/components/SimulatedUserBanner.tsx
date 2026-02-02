@@ -1,0 +1,47 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+
+interface Props {
+  userName: string
+}
+
+export function SimulatedUserBanner({ userName }: Props) {
+  const router = useRouter()
+  const [stopping, setStopping] = useState(false)
+
+  const handleStop = async () => {
+    setStopping(true)
+    try {
+      await fetch('/api/admin/simulate-user', { method: 'DELETE', credentials: 'include' })
+      router.refresh()
+    } catch (error) {
+      console.error('Failed to stop simulation:', error)
+      setStopping(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed left-0 right-0 z-50 bg-purple-600 text-white px-4 py-2 text-sm text-center"
+      style={{ top: 'env(safe-area-inset-top)' }}
+    >
+      <span className="font-bold">SIMULATING:</span> {userName}
+      <button
+        onClick={handleStop}
+        disabled={stopping}
+        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-white/20 rounded transition-colors"
+        title="Stop simulating"
+      >
+        {stopping ? (
+          <span className="text-xs">...</span>
+        ) : (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        )}
+      </button>
+    </div>
+  )
+}

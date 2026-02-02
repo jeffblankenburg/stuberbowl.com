@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { UserSimulator } from '@/components/UserSimulator'
+import { getSimulatedUserId } from '@/lib/simulation'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,6 +59,31 @@ export default async function AdminPage() {
     .select('id', { count: 'exact', head: true })
     .eq('is_claimed', false)
 
+  // Get all users for simulation dropdown
+  const { data: allUsers } = await supabase
+    .from('sb_profiles')
+    .select('id, display_name, phone')
+    .order('display_name')
+
+  // Check if currently simulating
+  const simulatedUserId = await getSimulatedUserId()
+  let currentSimulation: { id: string; displayName: string } | null = null
+
+  if (simulatedUserId) {
+    const { data: simUser } = await supabase
+      .from('sb_profiles')
+      .select('id, display_name')
+      .eq('id', simulatedUserId)
+      .single()
+
+    if (simUser) {
+      currentSimulation = {
+        id: simUser.id,
+        displayName: simUser.display_name
+      }
+    }
+  }
+
   return (
     <div className="p-4 space-y-6">
       {/* Header */}
@@ -84,6 +111,12 @@ export default async function AdminPage() {
           <p className="text-zinc-400 text-sm">Answered</p>
         </div>
       </div>
+
+      {/* User Simulation */}
+      <UserSimulator
+        users={allUsers || []}
+        currentSimulation={currentSimulation}
+      />
 
       {/* Contest Status */}
       {contest && (

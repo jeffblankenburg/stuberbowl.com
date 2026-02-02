@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ChatClient } from './chat-client'
+import { getActiveUserId } from '@/lib/simulation'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,9 @@ export default async function ChatPage() {
   if (!user) {
     redirect('/login')
   }
+
+  // Get the active user ID (simulated or real)
+  const activeUserId = await getActiveUserId(user.id)
 
   // Get active contest
   const { data: contest } = await supabase
@@ -40,18 +44,18 @@ export default async function ChatPage() {
     .order('created_at', { ascending: true })
     .limit(100)
 
-  // Get current user profile
+  // Get current user profile (use active user ID for simulation)
   const { data: profile } = await supabase
     .from('sb_profiles')
     .select('display_name')
-    .eq('id', user.id)
+    .eq('id', activeUserId)
     .single()
 
   return (
     <ChatClient
       contest={contest}
       initialMessages={messages || []}
-      userId={user.id}
+      userId={activeUserId}
       userName={profile?.display_name || 'Player'}
     />
   )

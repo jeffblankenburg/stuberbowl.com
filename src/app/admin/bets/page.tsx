@@ -21,6 +21,8 @@ export default function AdminBetsPage() {
   const [imageUrl, setImageUrl] = useState('')
   const [imagePreview, setImagePreview] = useState('')
   const [sourceUrl, setSourceUrl] = useState('')
+  const [isTiebreaker, setIsTiebreaker] = useState(false)
+  const [isOpenEnded, setIsOpenEnded] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Edit mode
@@ -31,7 +33,16 @@ export default function AdminBetsPage() {
   const [editImageUrl, setEditImageUrl] = useState('')
   const [editImagePreview, setEditImagePreview] = useState('')
   const [editSourceUrl, setEditSourceUrl] = useState('')
+  const [editIsTiebreaker, setEditIsTiebreaker] = useState(false)
+  const [editIsOpenEnded, setEditIsOpenEnded] = useState(false)
   const editFileInputRef = useRef<HTMLInputElement>(null)
+
+  // Tiebreaker responses view
+  const [viewingResponsesId, setViewingResponsesId] = useState<string | null>(null)
+  const [tiebreakerResponses, setTiebreakerResponses] = useState<{display_name: string, value_response: string}[]>([])
+
+  // Lock confirmation modal
+  const [showLockModal, setShowLockModal] = useState(false)
 
   const router = useRouter()
   const supabase = createClient()
@@ -148,7 +159,8 @@ export default function AdminBetsPage() {
 
   const handleAddBet = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!contest || !question.trim() || !optionA.trim() || !optionB.trim()) return
+    if (!contest || !question.trim()) return
+    if (!isOpenEnded && (!optionA.trim() || !optionB.trim())) return
 
     setSaving(true)
 
@@ -157,11 +169,13 @@ export default function AdminBetsPage() {
       .insert({
         contest_id: contest.id,
         question: question.trim(),
-        option_a: optionA.trim(),
-        option_b: optionB.trim(),
+        option_a: isOpenEnded ? '' : optionA.trim(),
+        option_b: isOpenEnded ? '' : optionB.trim(),
         category: category.trim() || null,
         image_url: imageUrl || null,
         source_url: sourceUrl.trim() || null,
+        is_tiebreaker: isTiebreaker,
+        is_open_ended: isOpenEnded,
         sort_order: propBets.length,
       })
 
@@ -173,11 +187,29 @@ export default function AdminBetsPage() {
       setImageUrl('')
       setImagePreview('')
       setSourceUrl('')
+      setIsTiebreaker(false)
+      setIsOpenEnded(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
       await fetchData()
     }
 
     setSaving(false)
+  }
+
+  const handleViewResponses = async (betId: string) => {
+    const { data } = await supabase
+      .from('sb_picks')
+      .select('value_response, sb_profiles(display_name)')
+      .eq('prop_bet_id', betId)
+      .not('value_response', 'is', null)
+
+    if (data) {
+      setTiebreakerResponses(data.map((d: { value_response: string | null, sb_profiles: { display_name: string } | null }) => ({
+        display_name: d.sb_profiles?.display_name || 'Unknown',
+        value_response: d.value_response || ''
+      })))
+      setViewingResponsesId(betId)
+    }
   }
 
   const handleSetResult = async (betId: string, result: 'A' | 'B' | null) => {
@@ -200,6 +232,8 @@ export default function AdminBetsPage() {
     setEditImageUrl(bet.image_url || '')
     setEditImagePreview(bet.image_url || '')
     setEditSourceUrl(bet.source_url || '')
+    setEditIsTiebreaker(bet.is_tiebreaker)
+    setEditIsOpenEnded(bet.is_open_ended)
   }
 
   const handleSaveEdit = async () => {
@@ -211,10 +245,12 @@ export default function AdminBetsPage() {
       .from('sb_prop_bets')
       .update({
         question: editQuestion.trim(),
-        option_a: editOptionA.trim(),
-        option_b: editOptionB.trim(),
+        option_a: editIsOpenEnded ? '' : editOptionA.trim(),
+        option_b: editIsOpenEnded ? '' : editOptionB.trim(),
         image_url: editImageUrl || null,
         source_url: editSourceUrl.trim() || null,
+        is_tiebreaker: editIsTiebreaker,
+        is_open_ended: editIsOpenEnded,
       })
       .eq('id', editingId)
 
@@ -236,15 +272,30 @@ export default function AdminBetsPage() {
 
     const newLockStatus = !contest.picks_locked
 
-    if (newLockStatus && !confirm('Lock all picks? Users will no longer be able to change their selections.')) {
+    // Show confirmation modal when locking
+    if (newLockStatus) {
+      setShowLockModal(true)
       return
     }
 
+    // Unlock immediately without confirmation
     await supabase
       .from('sb_contests')
-      .update({ picks_locked: newLockStatus })
+      .update({ picks_locked: false })
       .eq('id', contest.id)
 
+    await fetchData()
+  }
+
+  const confirmLock = async () => {
+    if (!contest) return
+
+    await supabase
+      .from('sb_contests')
+      .update({ picks_locked: true })
+      .eq('id', contest.id)
+
+    setShowLockModal(false)
     await fetchData()
   }
 
@@ -330,34 +381,59 @@ export default function AdminBetsPage() {
       <div className="bg-zinc-900 rounded-xl p-4 space-y-4">
         <h2 className="text-lg font-semibold text-white">Add New Prop</h2>
         <form onSubmit={handleAddBet} className="space-y-3">
+          {/* Question type toggles */}
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isTiebreaker}
+                onChange={(e) => setIsTiebreaker(e.target.checked)}
+                className="w-4 h-4 rounded bg-zinc-800 border-zinc-700 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-zinc-300 text-sm">Tiebreaker (doesn&apos;t count toward score)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isOpenEnded}
+                onChange={(e) => setIsOpenEnded(e.target.checked)}
+                className="w-4 h-4 rounded bg-zinc-800 border-zinc-700 text-amber-600 focus:ring-amber-500"
+              />
+              <span className="text-zinc-300 text-sm">Open-ended (user types answer)</span>
+            </label>
+          </div>
+
           <input
             type="text"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Question (e.g., Total passing yards?)"
+            placeholder={isOpenEnded ? "Question (e.g., Total combined score?)" : "Question (e.g., Total passing yards?)"}
             className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              type="text"
-              value={optionA}
-              onChange={(e) => setOptionA(e.target.value)}
-              placeholder="Option A (e.g., Over 250)"
-              className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              value={optionB}
-              onChange={(e) => setOptionB(e.target.value)}
-              placeholder="Option B (e.g., Under 250)"
-              className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+
+          {!isOpenEnded && (
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="text"
+                value={optionA}
+                onChange={(e) => setOptionA(e.target.value)}
+                placeholder="Option A (e.g., Over 250)"
+                className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                value={optionB}
+                onChange={(e) => setOptionB(e.target.value)}
+                placeholder="Option B (e.g., Under 250)"
+                className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
           <input
             type="text"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            placeholder="Category (optional, e.g., Game, Halftime)"
+            placeholder="Supplemental text (optional, e.g., how it's measured)"
             className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
 
@@ -408,7 +484,7 @@ export default function AdminBetsPage() {
           />
           <button
             type="submit"
-            disabled={saving || uploading || !question.trim() || !optionA.trim() || !optionB.trim()}
+            disabled={saving || uploading || !question.trim() || (!isOpenEnded && (!optionA.trim() || !optionB.trim()))}
             className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 text-white font-medium rounded-lg transition-colors"
           >
             {saving ? 'Adding...' : 'Add Prop Bet'}
@@ -532,8 +608,18 @@ export default function AdminBetsPage() {
                   </div>
 
                   <div className="flex-1">
-                    <p className="text-zinc-500 text-xs mb-1">#{index + 1} {bet.category && `• ${bet.category}`}</p>
-                    <p className="text-white font-medium">{bet.question}</p>
+                    <p className="text-zinc-500 text-xs mb-1">
+                      #{index + 1}
+                      {bet.is_tiebreaker && <span className="ml-2 text-purple-400">Tiebreaker</span>}
+                      {bet.is_open_ended && <span className="ml-2 text-amber-400">Open-ended</span>}
+                      {bet.category && ` • ${bet.category}`}
+                    </p>
+                    <div className="flex items-start gap-2">
+                      <p className="text-white font-medium">{bet.question}</p>
+                      {bet.source_url && (
+                        <img src="/bovada.svg" alt="Has source" className="h-5 flex-shrink-0" />
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -555,36 +641,48 @@ export default function AdminBetsPage() {
                   <img src={bet.image_url} alt="" className="w-full h-auto rounded-lg" />
                 )}
 
-                {/* Options and Result Selection */}
-                <div className="grid grid-cols-2 gap-2">
+                {bet.is_open_ended ? (
+                  /* Open-ended - View Responses button */
                   <button
-                    onClick={() => handleSetResult(bet.id, bet.correct_answer === 'A' ? null : 'A')}
-                    className={`p-2 rounded-lg text-sm font-medium transition-all ${
-                      bet.correct_answer === 'A'
-                        ? 'bg-green-600 text-white ring-2 ring-green-400'
-                        : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                    }`}
+                    onClick={() => handleViewResponses(bet.id)}
+                    className="w-full p-2 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white transition-all"
                   >
-                    {bet.option_a}
-                    {bet.correct_answer === 'A' && ' ✓'}
+                    View Responses
                   </button>
-                  <button
-                    onClick={() => handleSetResult(bet.id, bet.correct_answer === 'B' ? null : 'B')}
-                    className={`p-2 rounded-lg text-sm font-medium transition-all ${
-                      bet.correct_answer === 'B'
-                        ? 'bg-green-600 text-white ring-2 ring-green-400'
-                        : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                    }`}
-                  >
-                    {bet.option_b}
-                    {bet.correct_answer === 'B' && ' ✓'}
-                  </button>
-                </div>
+                ) : (
+                  /* Binary - Options and Result Selection */
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleSetResult(bet.id, bet.correct_answer === 'A' ? null : 'A')}
+                        className={`p-2 rounded-lg text-sm font-medium transition-all ${
+                          bet.correct_answer === 'A'
+                            ? 'bg-green-600 text-white ring-2 ring-green-400'
+                            : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                        }`}
+                      >
+                        {bet.option_a}
+                        {bet.correct_answer === 'A' && ' ✓'}
+                      </button>
+                      <button
+                        onClick={() => handleSetResult(bet.id, bet.correct_answer === 'B' ? null : 'B')}
+                        className={`p-2 rounded-lg text-sm font-medium transition-all ${
+                          bet.correct_answer === 'B'
+                            ? 'bg-green-600 text-white ring-2 ring-green-400'
+                            : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                        }`}
+                      >
+                        {bet.option_b}
+                        {bet.correct_answer === 'B' && ' ✓'}
+                      </button>
+                    </div>
 
-                {bet.correct_answer && (
-                  <p className="text-green-400 text-xs text-center">
-                    Result: {bet.correct_answer === 'A' ? bet.option_a : bet.option_b}
-                  </p>
+                    {bet.correct_answer && (
+                      <p className="text-green-400 text-xs text-center">
+                        Result: {bet.correct_answer === 'A' ? bet.option_a : bet.option_b}
+                      </p>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -598,6 +696,69 @@ export default function AdminBetsPage() {
           </div>
         )}
       </div>
+
+      {/* Tiebreaker Responses Modal */}
+      {viewingResponsesId && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+          <div className="bg-zinc-900 rounded-xl p-4 max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Responses</h3>
+              <button
+                onClick={() => setViewingResponsesId(null)}
+                className="p-1 text-zinc-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {tiebreakerResponses.length === 0 ? (
+              <p className="text-zinc-400 text-center py-4">No responses yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {tiebreakerResponses.map((response, idx) => (
+                  <div key={idx} className="flex justify-between items-center bg-zinc-800 rounded-lg p-3">
+                    <span className="text-zinc-300">{response.display_name}</span>
+                    <span className="text-white font-medium">{response.value_response}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Lock Confirmation Modal */}
+      {showLockModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+          <div className="bg-zinc-900 rounded-xl p-6 max-w-sm w-full">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-amber-600/20 rounded-full">
+              <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white text-center mb-2">Lock All Picks?</h3>
+            <p className="text-zinc-400 text-sm text-center mb-6">
+              Users will no longer be able to change their selections. You can unlock picks later if needed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLockModal(false)}
+                className="flex-1 py-2 px-4 bg-zinc-700 hover:bg-zinc-600 text-white font-medium rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLock}
+                className="flex-1 py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition-colors"
+              >
+                Lock Picks
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

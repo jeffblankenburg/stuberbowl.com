@@ -1,13 +1,54 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
 
 export default function LoginPage() {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [isInstalled, setIsInstalled] = useState(true) // Default to true to avoid flash
   const router = useRouter()
+
+  // Check if already installed and listen for install prompt
+  useEffect(() => {
+    // Check if running as installed PWA
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+
+    setIsInstalled(isStandalone)
+
+    // Listen for the beforeinstallprompt event
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault()
+      setInstallPrompt(e as BeforeInstallPromptEvent)
+      setIsInstalled(false)
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
+    }
+  }, [])
+
+  const handleInstall = async () => {
+    if (!installPrompt) return
+
+    await installPrompt.prompt()
+    const { outcome } = await installPrompt.userChoice
+
+    if (outcome === 'accepted') {
+      setIsInstalled(true)
+    }
+    setInstallPrompt(null)
+  }
 
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, '')
@@ -63,8 +104,7 @@ export default function LoginPage() {
       <main className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-sm space-y-8">
           <div className="text-center space-y-4">
-            <div className="text-6xl mb-4">🏈</div>
-            <h1 className="text-3xl font-bold text-blue-400">Stuber Bowl</h1>
+            <img src="/stuberbowl.png" alt="Stuber Bowl" className="w-full max-w-xs mx-auto" />
             <p className="text-zinc-400">Enter your phone number to sign in</p>
           </div>
 
@@ -101,6 +141,31 @@ export default function LoginPage() {
           <p className="text-center text-zinc-500 text-sm">
             You&apos;ll receive a text message with a verification code
           </p>
+
+          {/* Install prompt */}
+          {!isInstalled && (
+            <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">📲</div>
+                <div>
+                  <p className="text-white font-medium">Install the App</p>
+                  <p className="text-zinc-400 text-sm">Add Stuber Bowl to your home screen for the best experience</p>
+                </div>
+              </div>
+              {installPrompt ? (
+                <button
+                  onClick={handleInstall}
+                  className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  Install Now
+                </button>
+              ) : (
+                <p className="text-zinc-500 text-xs text-center">
+                  Tap the share button and select &quot;Add to Home Screen&quot;
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </main>
     </div>

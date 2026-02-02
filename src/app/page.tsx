@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PicksClient } from './picks-client'
+import { getActiveUserId } from '@/lib/simulation'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,9 @@ export default async function HomePage() {
     )
   }
 
+  // Get the active user ID (simulated or real)
+  const activeUserId = await getActiveUserId(user.id)
+
   // Get all prop bets for this contest
   const { data: propBets } = await supabase
     .from('sb_prop_bets')
@@ -36,17 +40,17 @@ export default async function HomePage() {
     .eq('contest_id', contest.id)
     .order('sort_order', { ascending: true })
 
-  // Get user's picks
+  // Get user's picks (use active user ID for simulation)
   const { data: picks } = await supabase
     .from('sb_picks')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', activeUserId)
 
-  // Get user profile
+  // Get user profile (use active user ID for simulation)
   const { data: profile } = await supabase
     .from('sb_profiles')
     .select('display_name')
-    .eq('id', user.id)
+    .eq('id', activeUserId)
     .single()
 
   return (
@@ -54,7 +58,7 @@ export default async function HomePage() {
       contest={contest}
       propBets={propBets || []}
       initialPicks={picks || []}
-      userId={user.id}
+      userId={activeUserId}
       userName={profile?.display_name || 'Player'}
     />
   )

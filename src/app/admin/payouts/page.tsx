@@ -112,10 +112,10 @@ export default function AdminPayoutsPage() {
 
   // Calculate pot
   const paidPlayers = leaderboard.filter(e => e.has_paid_entry).length
-  const totalPot = paidPlayers * contest.entry_fee
-  const firstPrize = totalPot * contest.payout_first / 100
-  const secondPrize = totalPot * contest.payout_second / 100
-  const thirdPrize = totalPot * contest.payout_third / 100
+  const totalPot = paidPlayers * (contest.entry_fee ?? 0)
+  const firstPrize = totalPot * (contest.payout_first ?? 0) / 100
+  const secondPrize = totalPot * (contest.payout_second ?? 0) / 100
+  const thirdPrize = totalPot * (contest.payout_third ?? 0) / 100
 
   // Get top 3 (paid only for prizes)
   const paidLeaderboard = leaderboard.filter(e => e.has_paid_entry)
@@ -154,7 +154,7 @@ export default function AdminPayoutsPage() {
         <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-yellow-400 font-bold">1st Place ({contest.payout_first}%)</p>
+              <p className="text-yellow-400 font-bold">1st Place ({contest.payout_first ?? 0}%)</p>
               <p className="text-2xl font-bold text-white">${firstPrize.toFixed(0)}</p>
               {winner && (
                 <p className="text-zinc-400 text-sm mt-1">
@@ -182,7 +182,7 @@ export default function AdminPayoutsPage() {
         <div className="bg-zinc-400/20 border border-zinc-400/50 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-zinc-300 font-bold">2nd Place ({contest.payout_second}%)</p>
+              <p className="text-zinc-300 font-bold">2nd Place ({contest.payout_second ?? 0}%)</p>
               <p className="text-2xl font-bold text-white">${secondPrize.toFixed(0)}</p>
               {second && (
                 <p className="text-zinc-400 text-sm mt-1">
@@ -206,7 +206,7 @@ export default function AdminPayoutsPage() {
         <div className="bg-amber-700/20 border border-amber-700/50 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-amber-500 font-bold">3rd Place ({contest.payout_third}%)</p>
+              <p className="text-amber-500 font-bold">3rd Place ({contest.payout_third ?? 0}%)</p>
               <p className="text-2xl font-bold text-white">${thirdPrize.toFixed(0)}</p>
               {third && (
                 <p className="text-zinc-400 text-sm mt-1">

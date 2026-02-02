@@ -119,9 +119,9 @@ export function LeaderboardClient({
           <p className="text-zinc-400 text-sm">Prize Pool</p>
           <p className="text-3xl font-bold text-white">${totalPot.toFixed(0)}</p>
           <div className="flex justify-center gap-4 text-xs text-zinc-400 mt-2">
-            <span>1st: ${(totalPot * contest.payout_first / 100).toFixed(0)}</span>
-            <span>2nd: ${(totalPot * contest.payout_second / 100).toFixed(0)}</span>
-            <span>3rd: ${(totalPot * contest.payout_third / 100).toFixed(0)}</span>
+            <span>1st: ${(totalPot * (contest.payout_first ?? 0) / 100).toFixed(0)}</span>
+            <span>2nd: ${(totalPot * (contest.payout_second ?? 0) / 100).toFixed(0)}</span>
+            <span>3rd: ${(totalPot * (contest.payout_third ?? 0) / 100).toFixed(0)}</span>
           </div>
         </div>
       </div>

@@ -125,7 +125,7 @@ export default function VerifyPage() {
       <main className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-sm space-y-8">
           <div className="text-center space-y-4">
-            <div className="text-6xl mb-4">🏈</div>
+            <img src="/stuberbowl.png" alt="Stuber Bowl" className="w-full max-w-xs mx-auto" />
             <h1 className="text-2xl font-bold">Enter verification code</h1>
             <p className="text-zinc-400">
               We sent a code to {phone && formatPhoneDisplay(phone)}
