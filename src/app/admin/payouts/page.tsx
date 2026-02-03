@@ -172,7 +172,11 @@ export default function AdminPayoutsPage() {
   const winner = paidLeaderboard[0]
   const second = paidLeaderboard[1]
   const third = paidLeaderboard[2]
-  const lastPlace = paidLeaderboard.length > 3 ? paidLeaderboard[paidLeaderboard.length - 1] : null
+  // Only show last place when results have been entered (someone has correct picks)
+  const hasResultsEntered = leaderboard.some(e => e.correct_picks > 0)
+  const lastPlace = hasResultsEntered && paidLeaderboard.length > 3
+    ? paidLeaderboard[paidLeaderboard.length - 1]
+    : null
 
   return (
     <div className="p-4 space-y-6">

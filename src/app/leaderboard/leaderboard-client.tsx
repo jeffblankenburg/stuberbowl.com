@@ -78,9 +78,12 @@ export function LeaderboardClient({
   const totalPot = paidPlayers * contest.entry_fee
   const lastPlacePayout = contest.payout_last ?? contest.entry_fee
 
-  // Find last place among paid players
+  // Find last place among paid players - only when results have been entered
   const paidLeaderboard = leaderboard.filter(e => e.has_paid_entry)
-  const lastPlaceUserId = paidLeaderboard.length > 3 ? paidLeaderboard[paidLeaderboard.length - 1]?.user_id : null
+  const hasResultsEntered = answeredCount > 0
+  const lastPlaceUserId = hasResultsEntered && paidLeaderboard.length > 3
+    ? paidLeaderboard[paidLeaderboard.length - 1]?.user_id
+    : null
 
   const getRankStyle = (rank: number) => {
     switch (rank) {
@@ -129,7 +132,7 @@ export function LeaderboardClient({
             <span>2nd: ${(totalPot * (contest.payout_second ?? 0) / 100).toFixed(0)}</span>
             <span>3rd: ${(totalPot * (contest.payout_third ?? 0) / 100).toFixed(0)}</span>
           </div>
-          <p className="text-xs text-red-400 mt-2">Last place gets ${lastPlacePayout} back</p>
+          <p className="text-xs text-red-400 mt-2">Last: ${lastPlacePayout} back</p>
         </div>
       </div>
 
